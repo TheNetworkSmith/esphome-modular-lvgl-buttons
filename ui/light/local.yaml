@@ -11,7 +11,9 @@
 #   icon:         icon glyph (optional, default: $mdi_lightbulb)
 #   row_span:     (default: 1)
 #   column_span:  (default: 1)
-#   page_id:      parent page (default: main_page)
+#   page_id:             parent page (default: main_page)
+#   auto_return_seconds: detail-page inactivity timeout in seconds
+#                        (default: 120, set to 0 to disable)
 
 packages:
   ${uid}_detail: !include
@@ -20,6 +22,7 @@ packages:
       uid: ${uid}
       text: ${text}
       page_id: ${page_id | default("main_page")}
+      auto_return_seconds: ${auto_return_seconds | default(120)}
 
 lvgl:
   pages:
