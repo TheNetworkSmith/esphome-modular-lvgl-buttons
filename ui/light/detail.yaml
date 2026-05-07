@@ -146,9 +146,9 @@ lvgl:
             - globals.set:
                 id: ${uid}_current_brightness
                 value: !lambda return x / 255.0f;
-            - script.execute: ${uid}_reset_page_timeout
             - script.execute: ${uid}_update_bulb_color
             on_release:
+            - script.execute: ${uid}_reset_page_timeout
             - script.execute: ${uid}_light_set_brightness
         - label:
             align: bottom_mid
@@ -187,9 +187,9 @@ lvgl:
             - globals.set:
                 id: ${uid}_current_saturation
                 value: !lambda return x;
-            - script.execute: ${uid}_reset_page_timeout
             - script.execute: ${uid}_update_bulb_color
             on_release:
+            - script.execute: ${uid}_reset_page_timeout
             - script.execute: ${uid}_light_apply_hs
         - label:
             align: bottom_mid
@@ -349,9 +349,9 @@ lvgl:
                 - globals.set:
                     id: ${uid}_current_hue
                     value: !lambda return x;
-                - script.execute: ${uid}_reset_page_timeout
                 - script.execute: ${uid}_update_bulb_color
                 on_release:
+                - script.execute: ${uid}_reset_page_timeout
                 - script.execute: ${uid}_light_apply_hs
 
             # COLOR TEMP ARC
@@ -385,9 +385,9 @@ lvgl:
                 - globals.set:
                     id: ${uid}_current_color_temp
                     value: !lambda return x;
-                - script.execute: ${uid}_reset_page_timeout
                 - script.execute: ${uid}_update_bulb_color
                 on_release:
+                - script.execute: ${uid}_reset_page_timeout
                 - script.execute: ${uid}_light_apply_color_temp
 
     # LIGHTBULB TOGGLE BUTTON
