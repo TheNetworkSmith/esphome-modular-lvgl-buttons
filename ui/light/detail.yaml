@@ -7,8 +7,11 @@
 #   uid:                  must match the including button's uid
 #   text:                 light name shown on the detail page header
 #   page_id:              parent page to return to (default: main_page)
-#   auto_return_seconds:  seconds of inactivity before auto-return to parent
-#                         page (default: 120, set to 0 to disable)
+#   auto_return_minutes:  minutes of inactivity before auto-return to parent
+#                         page (default: 2, set to 0 to disable). Resolution
+#                         is 1 minute because this hooks into the library's
+#                         once-per-minute time_update script ("screen_cron")
+#                         instead of running its own per-second interval.
 #
 # Scripts the button MUST define:
 #   ${uid}_light_toggle           — toggle the light on/off
@@ -65,8 +68,9 @@ globals:
 
 # Page timeout tracking for auto-return to parent page after inactivity.
 # Counter doubles as an open/closed flag (>0 means detail page is open) and
-# the elapsed-seconds counter. The configured timeout comes from the
-# `auto_return_seconds` package var (default 120, set 0 to disable).
+# the elapsed-minutes counter ticked by the library's time_update script.
+# The configured timeout comes from the `auto_return_minutes` package var
+# (default 2, set 0 to disable).
 - id: ${uid}_page_inactivity_counter
   type: int
   initial_value: '0'
@@ -459,9 +463,43 @@ lvgl:
 
 script:
 # ═══════════════════════════════════════════════════════════════════════════════
-# Reset page inactivity counter (resets 2-minute auto-return timer)
-# Call on page open and on every user interaction to restart the timer
-# ═══════════════════════════════════════════════════════════════════════════════
+# Auto-return tick — hooks into the library's once-per-minute time_update
+# script. While the counter is > 0 (i.e. the detail page is open), increment
+# it on every minute tick; when it reaches `auto_return_minutes`, navigate
+# back to the parent page and reset. Set `auto_return_minutes: 0` to disable.
+#
+# Using !extend time_update means we do not add a per-light interval timer —
+# all time-related work for this device runs on a single shared cadence.
+# ═══════════════════════════════════════════════════════════════════════════
+- id: !extend time_update
+  then:
+  - if:
+      condition:
+        lambda: |-
+          return ${auto_return_minutes | default(2)} > 0 &&
+                 id(${uid}_page_inactivity_counter) > 0;
+      then:
+      - if:
+          condition:
+            lambda: |-
+              return id(${uid}_page_inactivity_counter) >= ${auto_return_minutes | default(2)};
+          then:
+          - lvgl.page.show:
+              id: ${page_id | default("main_page")}
+              animation: MOVE_RIGHT
+              time: 300ms
+          - globals.set:
+              id: ${uid}_page_inactivity_counter
+              value: '0'
+          else:
+          - globals.set:
+              id: ${uid}_page_inactivity_counter
+              value: !lambda 'return id(${uid}_page_inactivity_counter) + 1;'
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Reset page inactivity counter (resets the auto-return timer)
+# Call on page open and on every user interaction to restart the timer.
+# ═══════════════════════════════════════════════════════════════════════════
 - id: ${uid}_reset_page_timeout
   then:
   - globals.set:
@@ -667,36 +705,3 @@ script:
       lv_obj_set_style_shadow_width(id(${uid}_bulb_btn), width, 0);
       lv_obj_set_style_text_color(id(${uid}_bulb_icon), lv_color_hex(color), 0);
 
-# ═══════════════════════════════════════════════════════════════════════════════
-# Auto-return to parent page after inactivity timeout
-# Per-light 1s interval that runs only while the detail page is open
-# (counter > 0). When the counter passes ${auto_return_seconds} (default 120,
-# 0 disables the feature entirely), navigate back to the parent page and reset.
-# ═══════════════════════════════════════════════════════════════════════════════
-interval:
-- interval: 1s
-  then:
-  # Skip entirely when feature is disabled (auto_return_seconds = 0)
-  # OR when the detail page is not open (counter == 0).
-  - if:
-      condition:
-        lambda: |-
-          return ${auto_return_seconds | default(120)} > 0 &&
-                 id(${uid}_page_inactivity_counter) > 0;
-      then:
-      - if:
-          condition:
-            lambda: |-
-              return id(${uid}_page_inactivity_counter) >= ${auto_return_seconds | default(120)};
-          then:
-          - lvgl.page.show:
-              id: ${page_id | default("main_page")}
-              animation: MOVE_RIGHT
-              time: 300ms
-          - globals.set:
-              id: ${uid}_page_inactivity_counter
-              value: '0'
-          else:
-          - globals.set:
-              id: ${uid}_page_inactivity_counter
-              value: !lambda 'return id(${uid}_page_inactivity_counter) + 1;'
