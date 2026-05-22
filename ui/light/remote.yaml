@@ -325,6 +325,8 @@ lvgl:
                 shadow_opa: COVER
                 shadow_width: 0
                 shadow_spread: 0
+                on_short_click:
+                  - script.execute: ${uid}_light_toggle
                 widgets:
                   - label:
                       id: ${uid}_bulb_icon
@@ -712,7 +714,7 @@ script:
           lv_obj_set_style_text_color(id(${uid}_bulb_icon), tint, LV_PART_MAIN);
           lv_obj_set_style_shadow_color(id(${uid}_bulb_container), tint, LV_PART_MAIN);
           int aura = id(${uid}_is_on)
-            ? (int)(id(${uid}_current_brightness) * 60.0f)
+            ? (int)(id(${uid}_current_brightness) * 120.0f)
             : 0;
           lv_obj_set_style_shadow_width(id(${uid}_bulb_container), aura, LV_PART_MAIN);
 
