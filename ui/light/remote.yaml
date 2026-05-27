@@ -240,8 +240,8 @@ lvgl:
                 align: center
                 x: 60
                 y: -10
-                width: 275
-                height: 275
+                width: 276
+                height: 276
                 pad_all: 0
                 adjustable: true
                 adv_hittest: true
@@ -251,12 +251,12 @@ lvgl:
                 start_angle: 0
                 end_angle: 360
                 rotation: 270
-                arc_width: 36
+                arc_width: 40
                 arc_opa: transp
                 indicator:
                   arc_opa: transp
                 knob:
-                  pad_all: 16
+                  pad_all: 30
                   bg_opa: transp
                   border_width: 4
                   border_color: gray
@@ -282,8 +282,8 @@ lvgl:
                 align: center
                 x: 60
                 y: -10
-                width: 281
-                height: 281
+                width: 276
+                height: 276
                 pad_all: 0
                 adjustable: true
                 adv_hittest: true
@@ -293,12 +293,12 @@ lvgl:
                 start_angle: 0
                 end_angle: 360
                 rotation: 270
-                arc_width: 36
+                arc_width: 40
                 arc_opa: transp
                 indicator:
                   arc_opa: transp
                 knob:
-                  pad_all: 16
+                  pad_all: 30
                   bg_opa: transp
                   border_width: 4
                   border_color: gray
