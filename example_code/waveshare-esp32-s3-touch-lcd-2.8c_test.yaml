@@ -29,6 +29,17 @@ esphome:
 # Enable logging
 logger:
 
+script:
+  # --------------------------------------------------------------------------
+  # This script is called once per minute.
+  # Any packages in this library will !extend time_update to update their own labels.
+  # You can add code here to update your own custom labels.
+  # --------------------------------------------------------------------------
+  - id: time_update
+    then:
+      - lambda: |-
+          // No operation
+
 packages:
   # Generic configuration for ESP32 screens
   # Include Wi-Fi support
