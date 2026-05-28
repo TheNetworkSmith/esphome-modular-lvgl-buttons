@@ -6,20 +6,32 @@
 #
 # Tile: icon + label + brightness slider. Short-click toggles the light;
 # long-press opens a per-instance color popup with rainbow hue + kelvin
-# rings (reuses the SVG assets defined in ui/popup/color_picker_popup.yaml).
+# rings. The popup itself lives in common/color_picker.yaml and is pulled
+# in below via `packages:`, parameterized by ${uid}/${text}/${color_picker_mode}.
 #
 # Requires:
-#   - pages/popups.yaml         (shared scrim + base popup_close script)
-#   - ui/popup/color_picker_popup.yaml (defines hue_ring_img + kelvin_ring_img)
+#   - ui/popup/popup_system.yaml (shared scrim, popup_close script,
+#                                 hue_ring_img + kelvin_ring_img assets)
 #
 # Vars:
-#   uid:         unique id (e.g. button_6)
-#   entity_id:   local ESPHome light component id (must be declared earlier)
-#   row, column: grid placement
-#   text:        button label
-#   icon:        glyph (default $mdi_lightbulb)
+#   uid:               unique id (e.g. button_6)
+#   entity_id:         local ESPHome light component id (must be declared earlier)
+#   row, column:       grid placement
+#   text:              button label (also used as popup title)
+#   icon:              glyph (default $mdi_lightbulb)
 #   row_span, column_span: (default 1)
-#   page_id:     parent page (default main_page)
+#   page_id:           parent page (default main_page)
+#   color_picker_mode: "rgb" | "kelvin" | "both"  (default "both")
+#                      Locks the popup to a single mode and hides the toggle
+#                      button when not "both".
+
+packages:
+  color_picker: !include
+    file: ../../common/color_picker.yaml
+    vars:
+      uid: ${uid}
+      text: ${text}
+      mode: ${color_picker_mode | default("both")}
 
 globals:
   - id: ${uid}_is_on
@@ -44,10 +56,6 @@ globals:
     type: bool
     initial_value: 'false'
   - id: ${uid}_supports_brightness
-    type: bool
-    initial_value: 'false'
-  # false = HSV ring, true = Kelvin ring
-  - id: ${uid}_mode_kelvin
     type: bool
     initial_value: 'false'
   # Suppress HA→UI sync echoes so we don't re-send values we just received
@@ -110,247 +118,6 @@ lvgl:
                     - script.execute: ${uid}_light_toggle
                   on_long_press:
                     - script.execute: ${uid}_show_popup
-
-  # Per-instance popup, sibling to the shared scrim in top_layer.
-  top_layer:
-    widgets:
-      - obj:
-          id: ${uid}_popup
-          hidden: true
-          align: CENTER
-          width: 95%
-          height: 95%
-          radius: 12
-          bg_color: $bg_color
-          bg_opa: COVER
-          border_width: 2
-          border_color: gray
-          pad_all: 12
-          clickable: true
-          widgets:
-            - label:
-                align: top_left
-                x: 4
-                y: 4
-                text_font: nunito_20
-                text_color: white
-                text: ${text}
-
-            - button:
-                align: bottom_left
-                x: 4
-                y: -10
-                radius: 15
-                width: 100
-                height: 50
-                widgets:
-                  - label:
-                      id: ${uid}_mode_toggle_label
-                      align: center
-                      text_font: $icon_font
-                      text_color: white
-                      text: $mdi_white_balance_sunny
-                on_short_click:
-                  - script.execute: ${uid}_mode_toggle
-
-            # Vertical brightness slider on the left side of the popup
-            - slider:
-                id: ${uid}_popup_brightness
-                align: left_mid
-                x: 8
-                y: -30
-                width: 30
-                height: 240
-                min_value: 0
-                max_value: 255
-                value: 255
-                indicator:
-                  bg_color: ep_orange
-                knob:
-                  bg_color: white
-                  border_width: 2
-                  border_color: gray
-                on_release:
-                  - globals.set:
-                      id: ${uid}_current_brightness
-                      value: !lambda return x / 255.0f;
-                  - lvgl.slider.update:
-                      id: slider_${uid}
-                      value: !lambda 'return (int) x;'
-                  - script.execute: ${uid}_light_set_brightness
-
-            # Vertical saturation slider next to brightness
-            - slider:
-                id: ${uid}_sat_slider
-                align: left_mid
-                x: 68
-                y: -30
-                width: 30
-                height: 240
-                min_value: 0
-                max_value: 100
-                value: 100
-                indicator:
-                  bg_color: steel_blue
-                knob:
-                  bg_color: white
-                  border_width: 2
-                  border_color: steel_blue
-                on_value:
-                  - lambda: id(${uid}_current_saturation) = (float) x;
-                  - script.execute: ${uid}_picker_update
-                on_release:
-                  - script.execute: ${uid}_light_apply_hs
-
-            # Slider identifying icons
-            - label:
-                id: ${uid}_brightness_icon
-                align: bottom_left
-                x: 4
-                y: -65
-                text_font: $icon_font
-                text_color: ep_orange
-                text: $mdi_brightness_6
-            - label:
-                id: ${uid}_sat_icon
-                align: bottom_left
-                x: 64
-                y: -65
-                text_font: $icon_font
-                text_color: steel_blue
-                text: $mdi_circle_opacity
-
-            # ---- HSV mode widgets ----
-            - image:
-                id: ${uid}_hue_ring_image
-                src: hue_ring_img
-                align: center
-                x: 60
-                y: -10
-
-            - arc:
-                id: ${uid}_hue_arc
-                align: center
-                x: 60
-                y: -10
-                width: 275
-                height: 275
-                pad_all: 0
-                adjustable: true
-                adv_hittest: true
-                min_value: 0
-                max_value: 360
-                value: 0
-                start_angle: 0
-                end_angle: 360
-                rotation: 270
-                arc_width: 36
-                arc_opa: transp
-                indicator:
-                  arc_opa: transp
-                knob:
-                  pad_all: 16
-                  bg_opa: transp
-                  border_width: 4
-                  border_color: gray
-                  shadow_opa: transp
-                on_value:
-                  - lambda: id(${uid}_current_hue) = (float) x;
-                  - script.execute: ${uid}_picker_update
-                on_release:
-                  - script.execute: ${uid}_light_apply_hs
-
-            # ---- Kelvin mode widgets (hidden by default) ----
-            - image:
-                id: ${uid}_kelvin_ring_image
-                hidden: true
-                src: kelvin_ring_img
-                align: center
-                x: 60
-                y: -10
-
-            - arc:
-                id: ${uid}_kelvin_arc
-                hidden: true
-                align: center
-                x: 60
-                y: -10
-                width: 281
-                height: 281
-                pad_all: 0
-                adjustable: true
-                adv_hittest: true
-                min_value: 1000
-                max_value: 8000
-                value: 3000
-                start_angle: 0
-                end_angle: 360
-                rotation: 270
-                arc_width: 36
-                arc_opa: transp
-                indicator:
-                  arc_opa: transp
-                knob:
-                  pad_all: 16
-                  bg_opa: transp
-                  border_width: 4
-                  border_color: gray
-                  shadow_opa: transp
-                on_value:
-                  - lambda: id(${uid}_current_color_temp) = (float) x;
-                  - script.execute: ${uid}_picker_update
-                on_release:
-                  - script.execute: ${uid}_light_apply_color_temp
-
-            # ---- Shared center / footer ----
-            - obj:
-                id: ${uid}_bulb_container
-                align: center
-                x: 60
-                y: -10
-                width: 84
-                height: 84
-                radius: 42
-                bg_opa: TRANSP
-                border_width: 0
-                pad_all: 0
-                shadow_color: 0xFF0000
-                shadow_opa: COVER
-                shadow_width: 0
-                shadow_spread: 0
-                on_short_click:
-                  - script.execute: ${uid}_light_toggle
-                widgets:
-                  - label:
-                      id: ${uid}_bulb_icon
-                      align: center
-                      text_font: $icon_font
-                      text_color: 0xFF0000
-                      text: $mdi_lightbulb
-
-            - label:
-                id: ${uid}_value_label
-                align: top_right
-                x: -4
-                y: 4
-                text_font: nunito_20
-                text_color: white
-                text: "H:0  S:100"
-
-            - button:
-                align: bottom_right
-                x: -4
-                y: -10
-                radius: 15
-                width: 100
-                height: 50
-                widgets:
-                  - label:
-                      text_color: white
-                      align: center
-                      text: "Close"
-                on_short_click:
-                  - script.execute: popup_close
 
 light:
   - id: !extend ${entity_id}
@@ -420,82 +187,18 @@ light:
 # ── Scripts ───────────────────────────────────────────────────────────────────
 
 script:
-  # Hook into the shared popup_close so the scrim/Close also hides ours.
-  - id: !extend popup_close
-    then:
-      - lvgl.widget.hide: ${uid}_popup
-
   # Show this instance's popup (also bring up the scrim).
   - id: ${uid}_show_popup
     then:
+      # For mode==both, pre-select Kelvin if the light is CT-only; HSV otherwise.
+      # picker_apply_mode overrides this for single-mode pickers.
+      - lambda: |-
+          id(${uid}_mode_kelvin) =
+            id(${uid}_supports_color_temp) && !id(${uid}_supports_rgb);
+      - script.execute: ${uid}_picker_apply_mode
       - lvgl.widget.show: popup_scrim
       - lvgl.widget.show: ${uid}_popup
       - script.execute: ${uid}_picker_update
-
-  # Toggle HSV ↔ Kelvin display in the popup
-  - id: ${uid}_mode_toggle
-    then:
-      - lambda: 'id(${uid}_mode_kelvin) = !id(${uid}_mode_kelvin);'
-      - if:
-          condition:
-            lambda: 'return id(${uid}_mode_kelvin);'
-          then:
-            - lvgl.widget.hide: ${uid}_hue_ring_image
-            - lvgl.widget.hide: ${uid}_hue_arc
-            - lvgl.widget.hide: ${uid}_sat_slider
-            - lvgl.widget.hide: ${uid}_sat_icon
-            - lvgl.widget.show: ${uid}_kelvin_ring_image
-            - lvgl.widget.show: ${uid}_kelvin_arc
-            - lvgl.label.update:
-                id: ${uid}_mode_toggle_label
-                text: $mdi_eyedropper
-          else:
-            - lvgl.widget.show: ${uid}_hue_ring_image
-            - lvgl.widget.show: ${uid}_hue_arc
-            - lvgl.widget.show: ${uid}_sat_slider
-            - lvgl.widget.show: ${uid}_sat_icon
-            - lvgl.widget.hide: ${uid}_kelvin_ring_image
-            - lvgl.widget.hide: ${uid}_kelvin_arc
-            - lvgl.label.update:
-                id: ${uid}_mode_toggle_label
-                text: $mdi_white_balance_sunny
-      - script.execute: ${uid}_picker_update
-
-  # Refresh popup swatch + readout from the current globals (no HA traffic).
-  - id: ${uid}_picker_update
-    then:
-      - lambda: |-
-          lv_color_t c;
-          char buf[32];
-          if (id(${uid}_mode_kelvin)) {
-            float t = id(${uid}_current_color_temp) / 100.0f;
-            float r, g, b;
-            if (t <= 66.0f) {
-              r = 255.0f;
-              g = 99.4708025861f * logf(t) - 161.1195681661f;
-              b = (t <= 19.0f)
-                    ? 0.0f
-                    : 138.5177312231f * logf(t - 10.0f) - 305.0447927307f;
-            } else {
-              r = 329.698727446f * powf(t - 60.0f, -0.1332047592f);
-              g = 288.1221695283f * powf(t - 60.0f, -0.0755148492f);
-              b = 255.0f;
-            }
-            auto cl = [](float v) -> uint8_t {
-              return (uint8_t)(v < 0 ? 0 : (v > 255 ? 255 : v));
-            };
-            c = lv_color_make(cl(r), cl(g), cl(b));
-            snprintf(buf, sizeof(buf), "%dK",
-                     (int) id(${uid}_current_color_temp));
-          } else {
-            uint16_t h = (uint16_t) id(${uid}_current_hue);
-            uint8_t  s = (uint8_t)  id(${uid}_current_saturation);
-            c = lv_color_hsv_to_rgb(h, s, 100);
-            snprintf(buf, sizeof(buf), "H:%u  S:%u", h, s);
-          }
-          lv_obj_set_style_text_color(id(${uid}_bulb_icon), c, LV_PART_MAIN);
-          lv_obj_set_style_shadow_color(id(${uid}_bulb_container), c, LV_PART_MAIN);
-          lv_label_set_text(id(${uid}_value_label), buf);
 
   # Recolor the tile icon to match bulb state.
   - id: ${uid}_update_bulb_color
