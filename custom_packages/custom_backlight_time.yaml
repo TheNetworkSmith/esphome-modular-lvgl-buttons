@@ -29,6 +29,12 @@ substitutions:
   display_backlight_timeout_always_enabled: "false"
   display_backlight_timeout_initial: ".12"
 
+globals:
+  - id: boot_restart_published
+    type: bool
+    restore_value: no
+    initial_value: 'false'
+
 sun:
   latitude: !secret latitude
   longitude: !secret longitude
@@ -58,6 +64,16 @@ number:
     step: 1
     mode: box
 
+light:
+  - id: !extend display_backlight
+    on_turn_on:
+      - lvgl.resume:
+
+  # You can set the display_backlight to on via HomeAssistant to turn on the display
+  # Please note, that the display will again turn off, after display_backlight_timeout has expired.
+  # To keep the display awake, you need to set display_backlight_timeout to -1, then
+  # reset the display_backlight_timeout when the turn on event is cleared (e.g. motion sensor does
+  # not detect motion)
 
 time:
   - platform: homeassistant
@@ -65,11 +81,12 @@ time:
     on_time_sync:
       - script.execute: time_update
 
-      # Update last restart time (only once)
+      # Update last restart time (only once, on first sync after boot)
       - if:
           condition:
-            lambda: 'return id(device_last_restart).state == "";'
+            lambda: 'return id(boot_restart_published) == false;'
           then:
+            - lambda: 'id(boot_restart_published) = true;'
             - text_sensor.template.publish:
                 id: device_last_restart
                 state: !lambda 'return id(system_time).now().strftime("%a %d %b %Y - %I:%M:%S %p");'
@@ -100,19 +117,12 @@ lvgl:
       - logger.log:
           level: INFO
           format: "LVGL is idle"
-#      - if:
-#          condition:
-#            lambda: 'return id(brightness_mode).current_option() == "Night" || ${display_backlight_timeout_always_enabled};'
-#          then:
-#            - light.turn_off: display_backlight
-#            - lvgl.pause:
-#                show_snow: true
-      
-      # ---> YOUR ADDED RESET TRICK HERE <---
-      - logger.log: "Idle timeout reached - reverting to weather page"
+      - logger.log:
+          level: INFO
+          format: "Idle timeout reached - returning to clock page"
       - lvgl.page.show:
           id: clock_page
-  
+
   on_resume:
     then:
       - logger.log:
