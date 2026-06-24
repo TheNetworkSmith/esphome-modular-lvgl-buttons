@@ -1,0 +1,572 @@
+text_sensor:
+  - platform: homeassistant
+    id: ha_dashboard_mode
+    entity_id: input_select.galley_dashboard_mode
+    on_value:
+      then:
+        - if:
+            condition:
+              lambda: 'return x == "coffee_calculator";'
+            then:
+              - script.execute: recalculate_coffee
+              - lvgl.page.show: coffee_calc_page
+
+globals:
+  - id: water_amount
+    type: float
+    initial_value: '8.0'
+  - id: water_unit
+    type: int
+    initial_value: '0'
+  - id: coffee_strength
+    type: int
+    initial_value: '1'
+  - id: coffee_input_buffer
+    type: std::string
+    initial_value: '"8"'
+
+script:
+  - id: sync_coffee_controls
+    then:
+      - if:
+          condition:
+            lambda: 'return id(water_unit) == 0;'
+          then:
+            - lvgl.widget.update:
+                id: coffee_unit_oz_button
+                bg_color: $button_on_color
+            - lvgl.widget.update:
+                id: coffee_unit_oz_label
+                text_color: $label_on_color
+          else:
+            - lvgl.widget.update:
+                id: coffee_unit_oz_button
+                bg_color: $button_off_color
+            - lvgl.widget.update:
+                id: coffee_unit_oz_label
+                text_color: $label_off_color
+      - if:
+          condition:
+            lambda: 'return id(water_unit) == 1;'
+          then:
+            - lvgl.widget.update:
+                id: coffee_unit_cups_button
+                bg_color: $button_on_color
+            - lvgl.widget.update:
+                id: coffee_unit_cups_label
+                text_color: $label_on_color
+          else:
+            - lvgl.widget.update:
+                id: coffee_unit_cups_button
+                bg_color: $button_off_color
+            - lvgl.widget.update:
+                id: coffee_unit_cups_label
+                text_color: $label_off_color
+      - if:
+          condition:
+            lambda: 'return id(water_unit) == 2;'
+          then:
+            - lvgl.widget.update:
+                id: coffee_unit_ml_button
+                bg_color: $button_on_color
+            - lvgl.widget.update:
+                id: coffee_unit_ml_label
+                text_color: $label_on_color
+          else:
+            - lvgl.widget.update:
+                id: coffee_unit_ml_button
+                bg_color: $button_off_color
+            - lvgl.widget.update:
+                id: coffee_unit_ml_label
+                text_color: $label_off_color
+      - if:
+          condition:
+            lambda: 'return id(coffee_strength) == 0;'
+          then:
+            - lvgl.widget.update:
+                id: coffee_strength_weak_button
+                bg_color: $button_on_color
+            - lvgl.widget.update:
+                id: coffee_strength_weak_label
+                text_color: $label_on_color
+          else:
+            - lvgl.widget.update:
+                id: coffee_strength_weak_button
+                bg_color: $button_off_color
+            - lvgl.widget.update:
+                id: coffee_strength_weak_label
+                text_color: $label_off_color
+      - if:
+          condition:
+            lambda: 'return id(coffee_strength) == 1;'
+          then:
+            - lvgl.widget.update:
+                id: coffee_strength_normal_button
+                bg_color: $button_on_color
+            - lvgl.widget.update:
+                id: coffee_strength_normal_label
+                text_color: $label_on_color
+          else:
+            - lvgl.widget.update:
+                id: coffee_strength_normal_button
+                bg_color: $button_off_color
+            - lvgl.widget.update:
+                id: coffee_strength_normal_label
+                text_color: $label_off_color
+      - if:
+          condition:
+            lambda: 'return id(coffee_strength) == 2;'
+          then:
+            - lvgl.widget.update:
+                id: coffee_strength_strong_button
+                bg_color: $button_on_color
+            - lvgl.widget.update:
+                id: coffee_strength_strong_label
+                text_color: $label_on_color
+          else:
+            - lvgl.widget.update:
+                id: coffee_strength_strong_button
+                bg_color: $button_off_color
+            - lvgl.widget.update:
+                id: coffee_strength_strong_label
+                text_color: $label_off_color
+
+  - id: recalculate_coffee
+    then:
+      - lambda: |-
+          auto input = id(coffee_input_buffer);
+          if (input.empty()) {
+            input = "0";
+          }
+          if (input[0] == '.') {
+            input = "0" + input;
+          }
+
+          char *end = nullptr;
+          float water = strtof(input.c_str(), &end);
+          if (end == input.c_str()) {
+            input = "0";
+            water = 0.0f;
+          }
+
+          id(coffee_input_buffer) = input;
+          id(water_amount) = water;
+          int unit = id(water_unit);
+          int strength = id(coffee_strength);
+
+          float water_grams = 0.0;
+          float ratio = 18.0;
+
+          if (unit == 0) {
+            water_grams = water * 29.57;
+          } else if (unit == 1) {
+            water_grams = water * 6.0 * 29.57;
+          } else if (unit == 2) {
+            water_grams = water;
+          }
+
+          if (strength == 0) {
+            ratio = 20.0;
+          } else if (strength == 1) {
+            ratio = 18.0;
+          } else if (strength == 2) {
+            ratio = 16.0;
+          }
+
+          float final_grounds = 0.0;
+          if (ratio > 0) {
+            final_grounds = water_grams / ratio;
+          }
+
+          const char *unit_label = "fl oz";
+          if (unit == 1) {
+            unit_label = "cups";
+          } else if (unit == 2) {
+            unit_label = "ml";
+          }
+
+          const char *strength_label = "Normal";
+          if (strength == 0) {
+            strength_label = "Weak";
+          } else if (strength == 2) {
+            strength_label = "Strong";
+          }
+
+          lv_label_set_text(id(water_amount_label), input.c_str());
+          lv_label_set_text(id(coffee_unit_value_label), unit_label);
+          lv_label_set_text_fmt(id(grounds_calc_label), "%.0f g", final_grounds);
+          lv_label_set_text_fmt(id(coffee_ratio_label), "1:%.0f\n%s", ratio, strength_label);
+      - script.execute: sync_coffee_controls
+
+lvgl:
+  pages:
+    - id: coffee_calc_page
+      styles: page_style
+      <<: !include ../common/swipe_navigation.yaml
+      widgets:
+        - container:
+            width: 100%
+            height: 100%
+            pad_left: 12
+            pad_right: 12
+            pad_top: 6
+            pad_bottom: 6
+            layout:
+              type: flex
+              flex_flow: column
+              flex_align_main: start
+              flex_align_cross: stretch
+              pad_row: 6
+            widgets:
+              - label:
+                  text: "Coffee Calculator"
+                  text_font: nunito_36
+                  text_color: white
+                  align: center
+
+              - obj:
+                  width: 100%
+                  height: 92px
+                  bg_color: gray900
+                  bg_opa: cover
+                  radius: 18
+                  pad_left: 16
+                  pad_right: 16
+                  pad_top: 10
+                  pad_bottom: 10
+                  layout:
+                    type: grid
+                    grid_columns: [FR(5), FR(3), FR(4)]
+                    grid_rows: [FR(1)]
+                    pad_column: 10
+                  widgets:
+                    - obj:
+                        bg_opa: TRANSP
+                        height: SIZE_CONTENT
+                        width: 100%
+                        grid_cell_row_pos: 0
+                        grid_cell_column_pos: 0
+                        grid_cell_x_align: stretch
+                        grid_cell_y_align: center
+                        layout:
+                          type: flex
+                          flex_flow: row
+                          flex_align_main: center
+                          flex_align_cross: end
+                          pad_column: 8
+                        widgets:
+                          - label:
+                              id: water_amount_label
+                              text: "8"
+                              text_font: nunito_48
+                              text_color: white
+                          - label:
+                              id: coffee_unit_value_label
+                              text: "fl oz"
+                              text_font: nunito_24
+                              text_color: gray
+                    - label:
+                        id: coffee_ratio_label
+                        text: "1:18\nNormal"
+                        text_font: nunito_2026
+                        text_color: dodgerblue
+                        width: 100%
+                        grid_cell_row_pos: 0
+                        grid_cell_column_pos: 1
+                        grid_cell_x_align: stretch
+                        grid_cell_y_align: center
+                        text_align: center
+                    - label:
+                        id: grounds_calc_label
+                        text: "13 g"
+                        text_font: nunito_24
+                        text_color: misty_blue
+                        width: 100%
+                        grid_cell_row_pos: 0
+                        grid_cell_column_pos: 2
+                        grid_cell_x_align: stretch
+                        grid_cell_y_align: center
+                        text_align: right
+
+              - container:
+                  width: 100%
+                  height: 40px
+                  layout:
+                    type: flex
+                    flex_flow: row
+                    flex_align_main: space_between
+                    flex_align_cross: center
+                  widgets:
+                    - button:
+                        id: coffee_unit_oz_button
+                        width: 32%
+                        height: 100%
+                        bg_color: $button_on_color
+                        widgets:
+                          - label:
+                              id: coffee_unit_oz_label
+                              text: "fl oz"
+                              text_color: $label_on_color
+                              align: center
+                        on_click:
+                          then:
+                            - lambda: 'id(water_unit) = 0;'
+                            - script.execute: recalculate_coffee
+                    - button:
+                        id: coffee_unit_cups_button
+                        width: 32%
+                        height: 100%
+                        widgets:
+                          - label:
+                              id: coffee_unit_cups_label
+                              text: "cups"
+                              align: center
+                        on_click:
+                          then:
+                            - lambda: 'id(water_unit) = 1;'
+                            - script.execute: recalculate_coffee
+                    - button:
+                        id: coffee_unit_ml_button
+                        width: 32%
+                        height: 100%
+                        widgets:
+                          - label:
+                              id: coffee_unit_ml_label
+                              text: "ml"
+                              align: center
+                        on_click:
+                          then:
+                            - lambda: 'id(water_unit) = 2;'
+                            - script.execute: recalculate_coffee
+
+              - container:
+                  width: 100%
+                  height: 40px
+                  layout:
+                    type: flex
+                    flex_flow: row
+                    flex_align_main: space_between
+                    flex_align_cross: center
+                  widgets:
+                    - button:
+                        id: coffee_strength_weak_button
+                        width: 32%
+                        height: 100%
+                        widgets:
+                          - label:
+                              id: coffee_strength_weak_label
+                              text: "weak"
+                              align: center
+                        on_click:
+                          then:
+                            - lambda: 'id(coffee_strength) = 0;'
+                            - script.execute: recalculate_coffee
+                    - button:
+                        id: coffee_strength_normal_button
+                        width: 32%
+                        height: 100%
+                        bg_color: $button_on_color
+                        widgets:
+                          - label:
+                              id: coffee_strength_normal_label
+                              text: "normal"
+                              text_color: $label_on_color
+                              align: center
+                        on_click:
+                          then:
+                            - lambda: 'id(coffee_strength) = 1;'
+                            - script.execute: recalculate_coffee
+                    - button:
+                        id: coffee_strength_strong_button
+                        width: 32%
+                        height: 100%
+                        widgets:
+                          - label:
+                              id: coffee_strength_strong_label
+                              text: "strong"
+                              align: center
+                        on_click:
+                          then:
+                            - lambda: 'id(coffee_strength) = 2;'
+                            - script.execute: recalculate_coffee
+
+              - buttonmatrix:
+                  id: coffee_keypad
+                  width: 100%
+                  height: 216px
+                  bg_opa: TRANSP
+                  border_width: 0
+                  pad_all: 0
+                  pad_column: 8
+                  pad_row: 8
+                  items:
+                    bg_color: $button_off_color
+                    bg_opa: cover
+                    border_width: 0
+                    radius: 18
+                    shadow_width: 0
+                    text_color: white
+                    text_font: nunito_36
+                    pressed:
+                      bg_color: $button_on_color
+                  rows:
+                    - buttons:
+                        - id: coffee_clear_button
+                          text: "C"
+                          on_click:
+                            then:
+                              - lambda: 'id(coffee_input_buffer) = "0";'
+                              - script.execute: recalculate_coffee
+                        - id: coffee_decimal_button
+                          text: "."
+                          on_click:
+                            then:
+                              - lambda: |-
+                                  auto input = id(coffee_input_buffer);
+                                  if (input.find('.') == std::string::npos) {
+                                    if (input.empty()) {
+                                      input = "0";
+                                    }
+                                    input += ".";
+                                    id(coffee_input_buffer) = input;
+                                  }
+                              - script.execute: recalculate_coffee
+                        - id: coffee_delete_button
+                          text: "DEL"
+                          on_click:
+                            then:
+                              - lambda: |-
+                                  auto input = id(coffee_input_buffer);
+                                  if (input.size() <= 1) {
+                                    input = "0";
+                                  } else {
+                                    input.pop_back();
+                                    if (input.empty()) {
+                                      input = "0";
+                                    }
+                                  }
+                                  id(coffee_input_buffer) = input;
+                              - script.execute: recalculate_coffee
+                    - buttons:
+                        - text: "7"
+                          on_click:
+                            then:
+                              - lambda: |-
+                                  auto input = id(coffee_input_buffer);
+                                  if (input == "0") {
+                                    input = "7";
+                                  } else if (input.size() < 6) {
+                                    input += "7";
+                                  }
+                                  id(coffee_input_buffer) = input;
+                              - script.execute: recalculate_coffee
+                        - text: "8"
+                          on_click:
+                            then:
+                              - lambda: |-
+                                  auto input = id(coffee_input_buffer);
+                                  if (input == "0") {
+                                    input = "8";
+                                  } else if (input.size() < 6) {
+                                    input += "8";
+                                  }
+                                  id(coffee_input_buffer) = input;
+                              - script.execute: recalculate_coffee
+                        - text: "9"
+                          on_click:
+                            then:
+                              - lambda: |-
+                                  auto input = id(coffee_input_buffer);
+                                  if (input == "0") {
+                                    input = "9";
+                                  } else if (input.size() < 6) {
+                                    input += "9";
+                                  }
+                                  id(coffee_input_buffer) = input;
+                              - script.execute: recalculate_coffee
+                    - buttons:
+                        - text: "4"
+                          on_click:
+                            then:
+                              - lambda: |-
+                                  auto input = id(coffee_input_buffer);
+                                  if (input == "0") {
+                                    input = "4";
+                                  } else if (input.size() < 6) {
+                                    input += "4";
+                                  }
+                                  id(coffee_input_buffer) = input;
+                              - script.execute: recalculate_coffee
+                        - text: "5"
+                          on_click:
+                            then:
+                              - lambda: |-
+                                  auto input = id(coffee_input_buffer);
+                                  if (input == "0") {
+                                    input = "5";
+                                  } else if (input.size() < 6) {
+                                    input += "5";
+                                  }
+                                  id(coffee_input_buffer) = input;
+                              - script.execute: recalculate_coffee
+                        - text: "6"
+                          on_click:
+                            then:
+                              - lambda: |-
+                                  auto input = id(coffee_input_buffer);
+                                  if (input == "0") {
+                                    input = "6";
+                                  } else if (input.size() < 6) {
+                                    input += "6";
+                                  }
+                                  id(coffee_input_buffer) = input;
+                              - script.execute: recalculate_coffee
+                    - buttons:
+                        - text: "1"
+                          on_click:
+                            then:
+                              - lambda: |-
+                                  auto input = id(coffee_input_buffer);
+                                  if (input == "0") {
+                                    input = "1";
+                                  } else if (input.size() < 6) {
+                                    input += "1";
+                                  }
+                                  id(coffee_input_buffer) = input;
+                              - script.execute: recalculate_coffee
+                        - text: "2"
+                          on_click:
+                            then:
+                              - lambda: |-
+                                  auto input = id(coffee_input_buffer);
+                                  if (input == "0") {
+                                    input = "2";
+                                  } else if (input.size() < 6) {
+                                    input += "2";
+                                  }
+                                  id(coffee_input_buffer) = input;
+                              - script.execute: recalculate_coffee
+                        - text: "3"
+                          on_click:
+                            then:
+                              - lambda: |-
+                                  auto input = id(coffee_input_buffer);
+                                  if (input == "0") {
+                                    input = "3";
+                                  } else if (input.size() < 6) {
+                                    input += "3";
+                                  }
+                                  id(coffee_input_buffer) = input;
+                              - script.execute: recalculate_coffee
+                    - buttons:
+                        - text: "0"
+                          width: 3
+                          on_click:
+                            then:
+                              - lambda: |-
+                                  auto input = id(coffee_input_buffer);
+                                  if (input != "0" && input.size() < 6) {
+                                    input += "0";
+                                    id(coffee_input_buffer) = input;
+                                  }
+                              - script.execute: recalculate_coffee
