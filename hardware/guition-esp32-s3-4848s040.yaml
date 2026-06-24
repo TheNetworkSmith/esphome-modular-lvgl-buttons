@@ -40,7 +40,7 @@ output:
   - platform: ledc
     pin: GPIO38
     id: gpio_backlight_pwm
-    frequency: 100Hz
+    frequency: 20000Hz
 
 # -------------------------------------------
 # Built in 240v/120v relay
@@ -81,16 +81,13 @@ touchscreen:
   id: my_touchscreen
   display: my_display
   i2c_id: bus_a
-  transform:
-    mirror_x: true
-    mirror_y: true
 
 # -------------------------------------------
 # Display st7701s spi
 # -------------------------------------------
 # Special LVGL settings required for this display
 lvgl:
-  rotation: ${rotation | default("180")}
+  rotation: ${rotation | default("0")}
 
 spi:
   - id: lcd_spi
@@ -98,13 +95,51 @@ spi:
     mosi_pin: GPIO47
 
 display:
-  - platform: mipi_rgb
-    model: GUITION-4848S040
+  - platform: st7701s
     id: my_display
-    color_order: RGB
-    # 6 MHz pixel clock gives the bounce buffer more headroom during LVGL
-    # full-screen flushes (e.g. new artwork). 8 MHz still works but leaves
-    # less margin and produces brief tearing marks on heavy redraws.
-    pclk_frequency: 6MHz
     update_interval: never
-    auto_clear_enabled: False
+    auto_clear_enabled: false
+    spi_mode: MODE3
+    data_rate: 2MHz
+    color_order: RGB
+    invert_colors: false
+    dimensions:
+      width: 480
+      height: 480
+    cs_pin: GPIO39
+    de_pin: GPIO18
+    hsync_pin: GPIO16
+    vsync_pin: GPIO17
+    pclk_pin: GPIO21
+    pclk_frequency: 12MHz
+    pclk_inverted: false
+    hsync_pulse_width: 8
+    hsync_front_porch: 10
+    hsync_back_porch: 20
+    vsync_pulse_width: 8
+    vsync_front_porch: 10
+    vsync_back_porch: 10
+    init_sequence:
+      - 1
+      - [0xFF, 0x77, 0x01, 0x00, 0x00, 0x10]
+      - [0xCD, 0x00]
+    data_pins:
+      red:
+        - 11
+        - 12
+        - 13
+        - 14
+        - 0
+      green:
+        - 8
+        - 20
+        - 3
+        - 46
+        - 9
+        - 10
+      blue:
+        - 4
+        - 5
+        - 6
+        - 7
+        - 15
