@@ -1,4 +1,8 @@
 ---
+# Local override of common/backlight_time.yaml.
+# Intended behavioral difference from the framework file: on idle timeout,
+# return to clock_page instead of blanking or pausing the display.
+# Everything else in this file should be kept aligned with the framework file.
 # ═══════════════════════════════════════════════════════════════════════════════
 # BACKLIGHT TIME CONTROL
 # ═══════════════════════════════════════════════════════════════════════════════

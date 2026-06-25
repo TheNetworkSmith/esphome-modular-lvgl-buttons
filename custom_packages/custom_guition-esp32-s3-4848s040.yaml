@@ -2,10 +2,16 @@
 # Local override for panels that showed flicker/banding and blank screen after OTA.
 # Based on the framework hardware file but uses the explicit st7701s configuration
 # and a higher backlight PWM frequency.
+# Keep this file separate from hardware/ so upstream hardware changes can be
+# merged safely and reviewed against this known-good local variant.
+# Exact symptoms that motivated this override: visible flicker/banding on some
+# panels and blank screen after OTA reboot until a full power cycle.
 ---
 substitutions:
   screen_height: 480
   screen_width: 480
+  display_backlight_pwm_frequency: 200Hz
+  display_backlight_gamma: "1.2"
 
 esphome:
   min_version: 2026.5.0
@@ -35,7 +41,7 @@ output:
   - platform: ledc
     pin: GPIO38
     id: gpio_backlight_pwm
-    frequency: 20000Hz
+    frequency: ${display_backlight_pwm_frequency}
 
 switch:
   - platform: gpio
@@ -54,6 +60,7 @@ light:
     name: Display Backlight
     icon: mdi:lightbulb-on
     id: display_backlight
+    gamma_correct: ${display_backlight_gamma}
     restore_mode: ALWAYS_ON
 
 i2c:

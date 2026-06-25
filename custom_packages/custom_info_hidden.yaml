@@ -1,4 +1,9 @@
 ---
+# Local variant of pages/info.yaml.
+# Keeps the info screen available but hidden from normal swipe navigation.
+substitutions:
+  display_info_page_skip_swipe: "true"
+
 lvgl:
   style_definitions:
     - id: boot_screen_style
@@ -7,7 +12,7 @@ lvgl:
       pad_all: 2
   pages:
     - id: info_screen
-      skip: true
+      skip: ${display_info_page_skip_swipe}
       styles: boot_screen_style
       <<: !include
         file: ../common/swipe_navigation.yaml

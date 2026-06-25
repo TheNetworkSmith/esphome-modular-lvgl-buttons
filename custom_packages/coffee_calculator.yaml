@@ -1,3 +1,10 @@
+---
+# Local reusable feature package for the coffee calculator page.
+# This is panel-specific app behavior, separated from the main device YAML so
+# it can be shared across dashboards without editing framework base files.
+# External trigger contract: this page is shown when
+# input_select.galley_dashboard_mode == "coffee_calculator".
+
 text_sensor:
   - platform: homeassistant
     id: ha_dashboard_mode
@@ -194,7 +201,7 @@ script:
 
           lv_label_set_text(id(water_amount_label), input.c_str());
           lv_label_set_text(id(coffee_unit_value_label), unit_label);
-          lv_label_set_text_fmt(id(grounds_calc_label), "%.0f g", final_grounds);
+          lv_label_set_text_fmt(id(grounds_calc_label), "%.0f", final_grounds);
           lv_label_set_text_fmt(id(coffee_ratio_label), "1:%.0f\n%s", ratio, strength_label);
       - script.execute: sync_coffee_controls
 
@@ -276,17 +283,31 @@ lvgl:
                         grid_cell_x_align: stretch
                         grid_cell_y_align: center
                         text_align: center
-                    - label:
-                        id: grounds_calc_label
-                        text: "13 g"
-                        text_font: nunito_24
-                        text_color: misty_blue
+                    - obj:
+                        bg_opa: TRANSP
+                        height: SIZE_CONTENT
                         width: 100%
                         grid_cell_row_pos: 0
                         grid_cell_column_pos: 2
                         grid_cell_x_align: stretch
                         grid_cell_y_align: center
-                        text_align: right
+                        layout:
+                          type: flex
+                          flex_flow: row
+                          flex_align_main: end
+                          flex_align_cross: end
+                          pad_column: 8
+                        widgets:
+                          - label:
+                              id: grounds_calc_label
+                              text: "13"
+                              text_font: nunito_48
+                              text_color: white
+                          - label:
+                              id: grounds_calc_unit_label
+                              text: "g"
+                              text_font: nunito_24
+                              text_color: gray
 
               - container:
                   width: 100%
@@ -319,7 +340,7 @@ lvgl:
                         widgets:
                           - label:
                               id: coffee_unit_cups_label
-                              text: "cups"
+                              text: "6 oz cups"
                               align: center
                         on_click:
                           then:
