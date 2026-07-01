@@ -4,6 +4,126 @@
 substitutions:
   display_info_page_skip_swipe: "true"
 
+switch:
+  - platform: template
+    id: display_info_page_skip_swipe_switch
+    name: Display info page skip swipe
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_ON
+
+script:
+  - id: show_next_dashboard_page
+    then:
+      - if:
+          condition:
+            lvgl.page.is_showing: main_page
+          then:
+            - lvgl.page.show:
+                id: weather_page
+                animation: OUT_RIGHT
+                time: 300ms
+          else:
+            - if:
+                condition:
+                  lvgl.page.is_showing: weather_page
+                then:
+                  - lvgl.page.show:
+                      id: coffee_calc_page
+                      animation: OUT_RIGHT
+                      time: 300ms
+                else:
+                  - if:
+                      condition:
+                        lvgl.page.is_showing: coffee_calc_page
+                      then:
+                        - if:
+                            condition:
+                              lambda: 'return id(display_info_page_skip_swipe_switch).state;'
+                            then:
+                              - lvgl.page.show:
+                                  id: clock_page
+                                  animation: OUT_RIGHT
+                                  time: 300ms
+                            else:
+                              - lvgl.page.show:
+                                  id: info_screen
+                                  animation: OUT_RIGHT
+                                  time: 300ms
+                      else:
+                        - if:
+                            condition:
+                              lvgl.page.is_showing: info_screen
+                            then:
+                              - lvgl.page.show:
+                                  id: clock_page
+                                  animation: OUT_RIGHT
+                                  time: 300ms
+                            else:
+                              - if:
+                                  condition:
+                                    lvgl.page.is_showing: clock_page
+                                  then:
+                                    - lvgl.page.show:
+                                        id: main_page
+                                        animation: OUT_RIGHT
+                                        time: 300ms
+
+  - id: show_previous_dashboard_page
+    then:
+      - if:
+          condition:
+            lvgl.page.is_showing: main_page
+          then:
+            - lvgl.page.show:
+                id: clock_page
+                animation: OUT_LEFT
+                time: 300ms
+          else:
+            - if:
+                condition:
+                  lvgl.page.is_showing: weather_page
+                then:
+                  - lvgl.page.show:
+                      id: main_page
+                      animation: OUT_LEFT
+                      time: 300ms
+                else:
+                  - if:
+                      condition:
+                        lvgl.page.is_showing: coffee_calc_page
+                      then:
+                        - lvgl.page.show:
+                            id: weather_page
+                            animation: OUT_LEFT
+                            time: 300ms
+                      else:
+                        - if:
+                            condition:
+                              lvgl.page.is_showing: info_screen
+                            then:
+                              - lvgl.page.show:
+                                  id: coffee_calc_page
+                                  animation: OUT_LEFT
+                                  time: 300ms
+                            else:
+                              - if:
+                                  condition:
+                                    lvgl.page.is_showing: clock_page
+                                  then:
+                                    - if:
+                                        condition:
+                                          lambda: 'return id(display_info_page_skip_swipe_switch).state;'
+                                        then:
+                                          - lvgl.page.show:
+                                              id: coffee_calc_page
+                                              animation: OUT_LEFT
+                                              time: 300ms
+                                        else:
+                                          - lvgl.page.show:
+                                              id: info_screen
+                                              animation: OUT_LEFT
+                                              time: 300ms
+
 lvgl:
   style_definitions:
     - id: boot_screen_style
@@ -12,10 +132,9 @@ lvgl:
       pad_all: 2
   pages:
     - id: info_screen
-      skip: ${display_info_page_skip_swipe}
       styles: boot_screen_style
       <<: !include
-        file: ../common/swipe_navigation.yaml
+        file: custom_swipe_navigation.yaml
       widgets:
         - obj:
             width: 100%

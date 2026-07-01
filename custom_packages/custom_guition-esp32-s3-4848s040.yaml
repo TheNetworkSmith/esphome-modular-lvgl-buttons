@@ -10,7 +10,7 @@
 substitutions:
   screen_height: 480
   screen_width: 480
-  display_backlight_pwm_frequency: 200Hz
+  display_backlight_pwm_frequency: 1200Hz
   display_backlight_gamma: "1.2"
 
 esphome:
@@ -76,6 +76,17 @@ touchscreen:
   id: my_touchscreen
   display: my_display
   i2c_id: bus_a
+  on_release:
+    then:
+      - script.execute: screen_interaction_started
+      - if:
+          condition:
+            lambda: 'return !id(display_backlight).current_values.is_on();'
+          then:
+            - logger.log:
+                level: INFO
+                format: "Touch detected while backlight was off - restoring display backlight"
+            - light.turn_on: display_backlight
 
 lvgl:
   rotation: ${rotation | default("0")}

@@ -209,7 +209,7 @@ lvgl:
   pages:
     - id: coffee_calc_page
       styles: page_style
-      <<: !include ../common/swipe_navigation.yaml
+      <<: !include custom_swipe_navigation.yaml
       widgets:
         - container:
             width: 100%

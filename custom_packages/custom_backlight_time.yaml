@@ -9,28 +9,28 @@
 # Controls display brightness based on sun position and time of day.
 #
 # Optional substitutions (defaults provided below):
-#   display_daytime_brightness: "100%"
-#   display_nighttime_brightness: "50%"
+#   display_daytime_brightness: "100"
+#   display_nighttime_brightness: "50"
 #   display_night_hour: "0"      # Hour for night mode (0-23)
 #   display_night_minute: "0"    # Minute for night mode (0-59)
-#   display_backlight_timeout_always_enabled: "false"  # Set true to dim/off in all modes, not just Night
 #   display_backlight_timeout_initial: "10"  # Initial backlight timeout in minutes (-1 to disable)
 #
-# Backlight idle timeout is controlled at runtime via the 'display_backlight_timeout' number entity (minutes).
+# Backlight settings are exposed at runtime through template number entities on
+# the device web interface and in Home Assistant.
 #
 # Modes:
 #   Day     - After sunrise, full brightness
 #   Evening - After sunset, reduced brightness
-#   Night   - After night hour, screen off when idle
+#   Night   - After night hour, reduced brightness
 # ═══════════════════════════════════════════════════════════════════════════════
 
 # Default values for backlight control - can be overridden in main YAML file
+# and are used as the initial values for the runtime-configurable entities.
 substitutions:
-  display_daytime_brightness: "100%"
-  display_nighttime_brightness: "50%"
+  display_daytime_brightness: "100"
+  display_nighttime_brightness: "50"
   display_night_hour: "0"
   display_night_minute: "0"
-  display_backlight_timeout_always_enabled: "false"
   display_backlight_timeout_initial: ".12"
 
 globals:
@@ -38,6 +38,11 @@ globals:
     type: bool
     restore_value: no
     initial_value: 'false'
+
+  - id: last_screen_interaction_ms
+    type: uint32_t
+    restore_value: no
+    initial_value: '0'
 
 sun:
   latitude: !secret latitude
@@ -68,6 +73,76 @@ number:
     step: 1
     mode: box
 
+  - platform: template
+    id: display_daytime_brightness_pct
+    name: Display daytime brightness
+    icon: mdi:brightness-7
+    optimistic: true
+    unit_of_measurement: "%"
+    initial_value: ${display_daytime_brightness}
+    restore_value: true
+    min_value: 0
+    max_value: 100
+    step: 1
+    mode: box
+    on_value:
+      then:
+        - if:
+            condition:
+              lambda: 'return id(brightness_mode).current_option() == "Day";'
+            then:
+              - script.execute: apply_brightness_mode
+
+  - platform: template
+    id: display_nighttime_brightness_pct
+    name: Display nighttime brightness
+    icon: mdi:brightness-4
+    optimistic: true
+    unit_of_measurement: "%"
+    initial_value: ${display_nighttime_brightness}
+    restore_value: true
+    min_value: 0
+    max_value: 100
+    step: 1
+    mode: box
+    on_value:
+      then:
+        - if:
+            condition:
+              lambda: 'return id(brightness_mode).current_option() != "Day";'
+            then:
+              - script.execute: apply_brightness_mode
+
+  - platform: template
+    id: display_night_hour_runtime
+    name: Display night hour
+    icon: mdi:clock-outline
+    optimistic: true
+    initial_value: ${display_night_hour}
+    restore_value: true
+    min_value: 0
+    max_value: 23
+    step: 1
+    mode: box
+    on_value:
+      then:
+        - script.execute: sync_brightness_mode_by_time
+
+  - platform: template
+    id: display_night_minute_runtime
+    name: Display night minute
+    icon: mdi:clock-outline
+    optimistic: true
+    initial_value: ${display_night_minute}
+    restore_value: true
+    min_value: 0
+    max_value: 59
+    step: 1
+    mode: box
+    on_value:
+      then:
+        - script.execute: sync_brightness_mode_by_time
+
 light:
   - id: !extend display_backlight
     on_turn_on:
@@ -97,36 +172,48 @@ time:
             - logger.log:
                 level: INFO
                 format: "Setting brightness mode on boot"
-            - script.execute: set_brightness_mode_on_boot
+            - script.execute: sync_brightness_mode_by_time
 
     on_time:
-      # Trigger night mode at configured time
-      - seconds: 0
-        minutes: ${display_night_minute}
-        hours: ${display_night_hour}
-        then:
-          - select.set:
-              id: brightness_mode
-              option: "Night"
-      # Update time display every minute
+      # Update time display and refresh the runtime brightness schedule every minute.
       - seconds: 0
         minutes: '*'
         then:
           - script.execute: time_update
+          - script.execute: sync_brightness_mode_by_time
+
+interval:
+  - interval: 15s
+    then:
+      - if:
+          condition:
+            lambda: |-
+              const float timeout_min = id(display_backlight_timeout).state;
+              if (timeout_min < 0) {
+                return false;
+              }
+
+              const uint32_t now_ms = millis();
+              if (id(last_screen_interaction_ms) == 0) {
+                id(last_screen_interaction_ms) = now_ms;
+                return false;
+              }
+
+              const uint32_t timeout_ms = (uint32_t) (timeout_min * 60000.0f);
+              if ((uint32_t) (now_ms - id(last_screen_interaction_ms)) < timeout_ms) {
+                return false;
+              }
+
+              return true;
+          then:
+            - logger.log:
+                level: INFO
+                format: "Touch idle timeout reached - returning to clock page"
+            - lambda: 'id(last_screen_interaction_ms) = millis();'
+            - lvgl.page.show:
+                id: clock_page
 
 lvgl:
-  on_idle:
-    timeout: !lambda return (uint32_t)(id(display_backlight_timeout).state * 60000);
-    then:
-      - logger.log:
-          level: INFO
-          format: "LVGL is idle"
-      - logger.log:
-          level: INFO
-          format: "Idle timeout reached - returning to clock page"
-      - lvgl.page.show:
-          id: clock_page
-
   on_resume:
     then:
       - logger.log:
@@ -152,6 +239,10 @@ select:
         - script.execute: apply_brightness_mode
 
 script:
+  - id: !extend screen_interaction_started
+    then:
+      - lambda: 'id(last_screen_interaction_ms) = millis();'
+
   # ─────────────────────────────────────────────────────────────────────────────
   # Apply brightness based on current mode
   # ─────────────────────────────────────────────────────────────────────────────
@@ -163,24 +254,24 @@ script:
           then:
             - light.turn_on:
                 id: display_backlight
-                brightness: ${display_daytime_brightness}
+                brightness: !lambda 'return id(display_daytime_brightness_pct).state / 100.0f;'
       - if:
           condition:
             lambda: 'return id(brightness_mode).current_option() == "Evening";'
           then:
             - light.turn_on:
                 id: display_backlight
-                brightness: ${display_nighttime_brightness}
+                brightness: !lambda 'return id(display_nighttime_brightness_pct).state / 100.0f;'
       - if:
           condition:
             lambda: 'return id(brightness_mode).current_option() == "Night";'
           then:
             - light.turn_on:
                 id: display_backlight
-                brightness: ${display_nighttime_brightness}
+                brightness: !lambda 'return id(display_nighttime_brightness_pct).state / 100.0f;'
 
   # ─────────────────────────────────────────────────────────────────────────────
-  # Set brightness mode on boot based on sun position and time
+  # Set brightness mode based on sun position and runtime-configurable night time
   # Logic:
   #   - Sun above horizon → Day
   #   - Sun below horizon + time >= night_hour → Night
@@ -188,7 +279,7 @@ script:
   # Note: Early morning (before sunrise) sun is down, but we've already passed
   #       night_hour from the previous day, so it remains Night until sunrise.
   # ─────────────────────────────────────────────────────────────────────────────
-  - id: set_brightness_mode_on_boot
+  - id: sync_brightness_mode_by_time
     then:
       - if:
           condition:
@@ -207,7 +298,9 @@ script:
                   lambda: |-
                     auto now = id(system_time).now();
                     int current = now.hour * 60 + now.minute;
-                    int night = ${display_night_hour} * 60 + ${display_night_minute};
+                    int night_hour = (int) id(display_night_hour_runtime).state;
+                    int night_minute = (int) id(display_night_minute_runtime).state;
+                    int night = night_hour * 60 + night_minute;
                     // Special case: if night_hour is midnight (0), use AM/PM as divider
                     // Evening = PM hours (12-23), Night = AM hours (0-11)
                     if (night == 0) {
