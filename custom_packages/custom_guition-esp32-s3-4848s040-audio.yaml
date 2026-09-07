@@ -1,0 +1,212 @@
+# Guition ESP32-S3-4848S040 480px X 480px Smart Screen - nightstand/alarm clock variant
+# Based on custom_guition-esp32-s3-4848s040.yaml but trades the onboard relay
+# outputs (unused on this device) for the onboard NS4168 I2S speaker amp, since
+# both use the same GPIO1/GPIO2/GPIO40 pins and can't coexist.
+---
+substitutions:
+  screen_height: 480
+  screen_width: 480
+  display_backlight_pwm_frequency: 1200Hz
+  display_backlight_gamma: "1.2"
+
+esphome:
+  min_version: 2026.5.0
+  project:
+    name: "Guition.ESP32-S3-4848S040"
+    version: "1.0"
+  # Diagnostic: force volume to max on boot to rule out a silent default gain.
+  on_boot:
+    - priority: 200
+      then:
+        - speaker.volume_set:
+            id: speaker_id
+            volume: 100%
+        - media_player.volume_set:
+            id: speaker_media_player_id
+            volume: 100%
+
+esp32:
+  variant: esp32s3
+  flash_size: 16MB
+  framework:
+    type: esp-idf
+    advanced:
+      execute_from_psram: true
+
+psram:
+  mode: octal
+  speed: 80MHz
+
+preferences:
+  flash_write_interval: 5min
+
+logger:
+  hardware_uart: UART0
+
+output:
+  - platform: ledc
+    pin: GPIO38
+    id: gpio_backlight_pwm
+    frequency: ${display_backlight_pwm_frequency}
+
+# Onboard NS4168 I2S amp feeding the 2-pin SPEAK header.
+i2s_audio:
+  - id: bus_speaker
+    i2s_lrclk_pin: GPIO2
+    i2s_bclk_pin: GPIO1
+
+speaker:
+  - platform: i2s_audio
+    id: speaker_id
+    i2s_audio_id: bus_speaker
+    dac_type: external
+    i2s_dout_pin: GPIO40
+    sample_rate: 48000
+  - platform: mixer
+    id: mixer_speaker_id
+    output_speaker: speaker_id
+    source_speakers:
+      - id: announcement_spk_mixer_input
+      - id: media_spk_mixer_input
+  - platform: resampler
+    id: media_spk_resampling_input
+    output_speaker: media_spk_mixer_input
+  - platform: resampler
+    id: announcement_spk_resampling_input
+    output_speaker: announcement_spk_mixer_input
+
+media_player:
+  - platform: speaker
+    name: "Nightstand Speaker"
+    id: speaker_media_player_id
+    media_pipeline:
+      speaker: media_spk_resampling_input
+      num_channels: 2
+      format: NONE  # compile in FLAC/MP3/OPUS/WAV decoders instead of FLAC-only default
+    announcement_pipeline:
+      speaker: announcement_spk_resampling_input
+      num_channels: 1
+      format: NONE  # compile in FLAC/MP3/OPUS/WAV decoders instead of FLAC-only default
+
+audio_file:
+  - id: sound_chimes
+    file: esphome-modular-lvgl-buttons/assets/sounds/chimes.wav
+  - id: sound_chords
+    file: esphome-modular-lvgl-buttons/assets/sounds/chords.wav
+  - id: sound_jingle
+    file: esphome-modular-lvgl-buttons/assets/sounds/jingle.wav
+  - id: sound_tap
+    file: esphome-modular-lvgl-buttons/assets/sounds/tap.wav
+  - id: sound_transition
+    file: esphome-modular-lvgl-buttons/assets/sounds/transition.wav
+  - id: sound_xylophone
+    file: esphome-modular-lvgl-buttons/assets/sounds/xylophone.wav
+  - id: volume_preview_sound
+    file: esphome-modular-lvgl-buttons/assets/sounds/volume.wav
+
+debug:
+  update_interval: 30s
+
+sensor:
+  - platform: debug
+    free:
+      name: "Heap Free"
+      entity_category: diagnostic
+    block:
+      name: "Heap Largest Free Block"
+      entity_category: diagnostic
+    psram:
+      name: "PSRAM Free"
+      entity_category: diagnostic
+
+light:
+  - platform: monochromatic
+    output: gpio_backlight_pwm
+    name: Display Backlight
+    icon: mdi:lightbulb-on
+    id: display_backlight
+    gamma_correct: ${display_backlight_gamma}
+    restore_mode: ALWAYS_ON
+
+i2c:
+  - id: bus_a
+    sda:
+      number: GPIO19
+    scl:
+      number: GPIO45
+      ignore_strapping_warning: true
+
+touchscreen:
+  platform: gt911
+  id: my_touchscreen
+  display: my_display
+  i2c_id: bus_a
+  on_release:
+    then:
+      - script.execute: screen_interaction_started
+      - if:
+          condition:
+            lambda: 'return !id(display_backlight).current_values.is_on();'
+          then:
+            - logger.log:
+                level: INFO
+                format: "Touch detected while backlight was off - restoring display backlight"
+            - light.turn_on: display_backlight
+
+lvgl:
+  rotation: ${rotation | default("0")}
+
+spi:
+  - id: lcd_spi
+    clk_pin: GPIO48
+    mosi_pin: GPIO47
+
+display:
+  - platform: st7701s
+    id: my_display
+    update_interval: never
+    auto_clear_enabled: false
+    spi_mode: MODE3
+    data_rate: 2MHz
+    color_order: RGB
+    invert_colors: false
+    dimensions:
+      width: 480
+      height: 480
+    cs_pin: GPIO39
+    de_pin: GPIO18
+    hsync_pin: GPIO16
+    vsync_pin: GPIO17
+    pclk_pin: GPIO21
+    pclk_frequency: 12MHz
+    pclk_inverted: false
+    hsync_pulse_width: 8
+    hsync_front_porch: 10
+    hsync_back_porch: 20
+    vsync_pulse_width: 8
+    vsync_front_porch: 10
+    vsync_back_porch: 10
+    init_sequence:
+      - 1
+      - [0xFF, 0x77, 0x01, 0x00, 0x00, 0x10]
+      - [0xCD, 0x00]
+    data_pins:
+      red:
+        - 11
+        - 12
+        - 13
+        - 14
+        - 0
+      green:
+        - 8
+        - 20
+        - 3
+        - 46
+        - 9
+        - 10
+      blue:
+        - 4
+        - 5
+        - 6
+        - 7
+        - 15
