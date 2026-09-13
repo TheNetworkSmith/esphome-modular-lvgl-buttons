@@ -79,14 +79,19 @@ media_player:
   - platform: speaker
     name: "Nightstand Speaker"
     id: speaker_media_player_id
+    # Keep small: each repeat_one loop can free/realloc this buffer; large
+    # contiguous blocks fragment PSRAM and starve LVGL draw buffers (~2KB).
+    buffer_size: 48000
+    task_stack_in_psram: true
     media_pipeline:
       speaker: media_spk_resampling_input
       num_channels: 2
-      format: NONE  # compile in FLAC/MP3/OPUS/WAV decoders instead of FLAC-only default
+      # WAV-only: alarm tones are on-device WAVs; dropping FLAC/MP3/OPUS saves flash.
+      format: WAV
     announcement_pipeline:
       speaker: announcement_spk_resampling_input
       num_channels: 1
-      format: NONE  # compile in FLAC/MP3/OPUS/WAV decoders instead of FLAC-only default
+      format: WAV
 
 audio_file:
   - id: sound_chimes
@@ -101,8 +106,6 @@ audio_file:
     file: esphome-modular-lvgl-buttons/assets/sounds/transition.wav
   - id: sound_xylophone
     file: esphome-modular-lvgl-buttons/assets/sounds/xylophone.wav
-  - id: volume_preview_sound
-    file: esphome-modular-lvgl-buttons/assets/sounds/volume.wav
 
 debug:
   update_interval: 30s

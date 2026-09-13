@@ -1,0 +1,10 @@
+---
+# Local swipe navigation that supports runtime page routing decisions.
+on_swipe_right:
+    - lambda: 'lv_indev_wait_release(lv_indev_get_act());'
+    - logger.log: "Swipe right"
+    - script.execute: show_next_dashboard_page
+on_swipe_left:
+    - lambda: 'lv_indev_wait_release(lv_indev_get_act());'
+    - logger.log: "Swipe left"
+    - script.execute: show_previous_dashboard_page

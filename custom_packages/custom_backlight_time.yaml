@@ -188,6 +188,10 @@ interval:
       - if:
           condition:
             lambda: |-
+              if (id(alarm_active)) {
+                return false;
+              }
+              
               const float timeout_min = id(display_backlight_timeout).state;
               if (timeout_min < 0) {
                 return false;
@@ -212,6 +216,7 @@ interval:
             - lambda: 'id(last_screen_interaction_ms) = millis();'
             - lvgl.page.show:
                 id: clock_page
+            - script.execute: apply_brightness_mode
 
 lvgl:
   on_resume:
@@ -234,8 +239,12 @@ select:
     initial_option: Day
     on_value:
       then:
-        - lvgl.resume
-        - lvgl.widget.redraw
+        - if:
+            condition:
+              lambda: 'return !id(alarm_active);'
+            then:
+              - lvgl.resume
+              - lvgl.widget.redraw
         - script.execute: apply_brightness_mode
 
 script:
