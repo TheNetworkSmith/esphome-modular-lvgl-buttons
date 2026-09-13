@@ -6,7 +6,7 @@
 
 A modular component library for building touchscreen smart home control panels using [ESPHome](https://esphome.io/) + [LVGL](https://lvgl.io/) on cheap ESP32 displays.
 
-See [ARCHITECTURE.md](ARCHITECTURE.md) for the full design rationale.
+See [ARCHITECTURE.md](ARCHITECTURE.md) for the full design rationale. Local features and overrides live in [custom_packages/](custom_packages/README.md) (alarm clock docs: [alarm_clock.md](custom_packages/alarm_clock.md)).
 
 ---
 

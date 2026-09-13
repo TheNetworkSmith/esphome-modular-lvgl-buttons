@@ -43,6 +43,7 @@ esphome-modular-lvgl-buttons/
 │   ├── time_homeassistant.yaml
 │   └── time_sntp.yaml
 ├── hardware/                 # Device-specific configs (display, touch, backlight)
+├── custom_packages/          # Local features + overrides (see custom_packages/README.md)
 ├── example_code/             # Ready-to-use example configs per supported device
 │   └── advanced/             #   Advanced integrations (solar, tides, weather, flip clock)
 ├── assets/                   # Fonts and images
@@ -253,6 +254,18 @@ font:
 ```
 
 ---
+
+
+---
+
+## Custom packages (`custom_packages/`)
+
+Panel-specific **features** (alarm clock, coffee calculator) and **local overrides** of framework files (hardware, backlight, swipe/nav). Kept separate from `ui/`, `common/`, and `hardware/` so upstream merges only require reconciling these variants.
+
+- Index: [custom_packages/README.md](custom_packages/README.md)
+- Alarm / timer: [custom_packages/alarm_clock.md](custom_packages/alarm_clock.md)
+
+Do not move these into upstream folders without an explicit decision to publish them as first-class library components.
 
 ## Testing
 

@@ -88,6 +88,12 @@ common/                  shared infrastructure — reuse as-is, do not modify
 
 hardware/                device-specific configs — reuse as-is, do not modify
 
+custom_packages/         local features + framework overrides — see custom_packages/README.md
+  README.md              index of every custom package
+  alarm_clock.md         alarm + timer integration and invariants
+  alarm_clock.yaml       daily alarm + one-shot timer feature package
+  *.yaml                 other custom_* overrides and features
+
 example_code/            example device configs
   advanced/              advanced integration examples (solar, tides, weather, clock)
 ```
@@ -282,6 +288,19 @@ ESPHome uses Jinja2 but with **different delimiters** than standard Jinja. Getti
 ### Expression Syntax
 - ESPHome uses `${...}` instead of `{{ ... }}` for expressions
 - **`{% if %}` / `{% else %}` blocks are NOT supported** — use inline ternary instead
+
+
+---
+
+## Custom packages
+
+Before editing anything under `custom_packages/`, read [custom_packages/README.md](custom_packages/README.md). For alarm/timer work, also read [custom_packages/alarm_clock.md](custom_packages/alarm_clock.md).
+
+Rules:
+
+- Prefer adding or extending a `custom_*.yaml` (or a named feature package) over editing upstream `common/`, `hardware/`, or `ui/` files in place.
+- Preserve documented invariants (especially alarm audio exclusivity and timer-vs-daily override behavior).
+- Keep device YAML thin: compose via `packages:`, do not copy feature logic into each panel config.
 
 ## Conventions
 
